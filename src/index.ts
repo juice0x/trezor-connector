@@ -54,7 +54,14 @@ export class TrezorConnector extends AbstractConnector {
         appUrl: this.manifestAppUrl
       })
       const engine = new Web3ProviderEngine({ pollingInterval: this.pollingInterval })
-      engine.addProvider(new TrezorSubprovider({ trezorConnectClientApi: TrezorConnect, ...this.config }))
+      engine.addProvider(new TrezorSubprovider({
+        accountFetchingConfigs: {
+          numAddressesToReturn: 20,
+          shouldAskForOnDeviceConfirmation: true
+        },
+        trezorConnectClientApi: TrezorConnect,
+        networkId: this.config.networkId
+      }))
       engine.addProvider(new CacheSubprovider())
       engine.addProvider(new RPCSubprovider(this.url, this.requestTimeoutMs))
       this.provider = engine

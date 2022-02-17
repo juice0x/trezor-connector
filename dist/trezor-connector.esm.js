@@ -40,24 +40,6 @@ function _asyncToGenerator(fn) {
   };
 }
 
-function _extends() {
-  _extends = Object.assign || function (target) {
-    for (var i = 1; i < arguments.length; i++) {
-      var source = arguments[i];
-
-      for (var key in source) {
-        if (Object.prototype.hasOwnProperty.call(source, key)) {
-          target[key] = source[key];
-        }
-      }
-    }
-
-    return target;
-  };
-
-  return _extends.apply(this, arguments);
-}
-
 function _inheritsLoose(subClass, superClass) {
   subClass.prototype = Object.create(superClass.prototype);
   subClass.prototype.constructor = subClass;
@@ -885,9 +867,14 @@ var TrezorConnector = /*#__PURE__*/function (_AbstractConnector) {
               engine = new Web3ProviderEngine({
                 pollingInterval: this.pollingInterval
               });
-              engine.addProvider(new TrezorSubprovider(_extends({
-                trezorConnectClientApi: TrezorConnect
-              }, this.config)));
+              engine.addProvider(new TrezorSubprovider({
+                accountFetchingConfigs: {
+                  numAddressesToReturn: 20,
+                  shouldAskForOnDeviceConfirmation: true
+                },
+                trezorConnectClientApi: TrezorConnect,
+                networkId: this.config.networkId
+              }));
               engine.addProvider(new CacheSubprovider());
               engine.addProvider(new RPCSubprovider(this.url, this.requestTimeoutMs));
               this.provider = engine;
