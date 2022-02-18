@@ -1,10 +1,9 @@
 import { ConnectorUpdate } from '@web3-react/types'
 import { AbstractConnector } from '@web3-react/abstract-connector'
 import Web3ProviderEngine from 'web3-provider-engine'
-import { TrezorSubprovider } from '@0x/subproviders/lib/src/subproviders/trezor' // https://github.com/0xProject/0x-monorepo/issues/1400
+import { TrezorSubprovider } from './subprovider'
 import CacheSubprovider from 'web3-provider-engine/subproviders/cache.js'
 import { RPCSubprovider } from '@0x/subproviders/lib/src/subproviders/rpc_subprovider' // https://github.com/0xProject/0x-monorepo/issues/1400
-
 interface TrezorConnectorArguments {
   chainId: number
   url: string
@@ -54,21 +53,13 @@ export class TrezorConnector extends AbstractConnector {
         appUrl: this.manifestAppUrl
       })
       const engine = new Web3ProviderEngine({ pollingInterval: this.pollingInterval })
-      engine.addProvider(new TrezorSubprovider({
-        accountFetchingConfigs: {
-          numAddressesToReturn: 20,
-          shouldAskForOnDeviceConfirmation: true
-        },
-        trezorConnectClientApi: TrezorConnect,
-        networkId: this.config.networkId
-      }))
+      const trezorSubprovider = new TrezorSubprovider({ trezorConnectClientApi: TrezorConnect, ...this.config })
+      engine.addProvider(trezorSubprovider)
       engine.addProvider(new CacheSubprovider())
       engine.addProvider(new RPCSubprovider(this.url, this.requestTimeoutMs))
       this.provider = engine
     }
-
     this.provider.start()
-
     return { provider: this.provider, chainId: this.chainId }
   }
 
@@ -80,7 +71,7 @@ export class TrezorConnector extends AbstractConnector {
     return this.chainId
   }
 
-  public async getAccount(): Promise<null> {
+  public async getAccount(): Promise<string> {
     return this.provider._providers[0].getAccountsAsync(1).then((accounts: string[]): string => accounts[0])
   }
 

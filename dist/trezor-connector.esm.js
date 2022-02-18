@@ -1,6 +1,7 @@
 import { AbstractConnector } from '@web3-react/abstract-connector';
 import Web3ProviderEngine from 'web3-provider-engine';
-import { TrezorSubprovider } from '@0x/subproviders/lib/src/subproviders/trezor';
+import { BaseWalletSubprovider } from '@0x/subproviders/lib/src/subproviders/base_wallet_subprovider';
+import { Transaction } from 'ethereumjs-tx';
 import CacheSubprovider from 'web3-provider-engine/subproviders/cache.js';
 import { RPCSubprovider } from '@0x/subproviders/lib/src/subproviders/rpc_subprovider';
 
@@ -38,6 +39,24 @@ function _asyncToGenerator(fn) {
       _next(undefined);
     });
   };
+}
+
+function _extends() {
+  _extends = Object.assign || function (target) {
+    for (var i = 1; i < arguments.length; i++) {
+      var source = arguments[i];
+
+      for (var key in source) {
+        if (Object.prototype.hasOwnProperty.call(source, key)) {
+          target[key] = source[key];
+        }
+      }
+    }
+
+    return target;
+  };
+
+  return _extends.apply(this, arguments);
 }
 
 function _inheritsLoose(subClass, superClass) {
@@ -148,9 +167,9 @@ var runtime = (function (exports) {
   // This is a polyfill for %IteratorPrototype% for environments that
   // don't natively support it.
   var IteratorPrototype = {};
-  IteratorPrototype[iteratorSymbol] = function () {
+  define(IteratorPrototype, iteratorSymbol, function () {
     return this;
-  };
+  });
 
   var getProto = Object.getPrototypeOf;
   var NativeIteratorPrototype = getProto && getProto(getProto(values([])));
@@ -164,8 +183,9 @@ var runtime = (function (exports) {
 
   var Gp = GeneratorFunctionPrototype.prototype =
     Generator.prototype = Object.create(IteratorPrototype);
-  GeneratorFunction.prototype = Gp.constructor = GeneratorFunctionPrototype;
-  GeneratorFunctionPrototype.constructor = GeneratorFunction;
+  GeneratorFunction.prototype = GeneratorFunctionPrototype;
+  define(Gp, "constructor", GeneratorFunctionPrototype);
+  define(GeneratorFunctionPrototype, "constructor", GeneratorFunction);
   GeneratorFunction.displayName = define(
     GeneratorFunctionPrototype,
     toStringTagSymbol,
@@ -279,9 +299,9 @@ var runtime = (function (exports) {
   }
 
   defineIteratorMethods(AsyncIterator.prototype);
-  AsyncIterator.prototype[asyncIteratorSymbol] = function () {
+  define(AsyncIterator.prototype, asyncIteratorSymbol, function () {
     return this;
-  };
+  });
   exports.AsyncIterator = AsyncIterator;
 
   // Note that simple async functions are implemented on top of
@@ -474,13 +494,13 @@ var runtime = (function (exports) {
   // iterator prototype chain incorrectly implement this, causing the Generator
   // object to not be returned from this call. This ensures that doesn't happen.
   // See https://github.com/facebook/regenerator/issues/274 for more details.
-  Gp[iteratorSymbol] = function() {
+  define(Gp, iteratorSymbol, function() {
     return this;
-  };
+  });
 
-  Gp.toString = function() {
+  define(Gp, "toString", function() {
     return "[object Generator]";
-  };
+  });
 
   function pushTryEntry(locs) {
     var entry = { tryLoc: locs[0] };
@@ -799,16 +819,263 @@ try {
 } catch (accidentalStrictMode) {
   // This module should not be running in strict mode, so the above
   // assignment should always work unless something is misconfigured. Just
-  // in case runtime.js accidentally runs in strict mode, we can escape
+  // in case runtime.js accidentally runs in strict mode, in modern engines
+  // we can explicitly access globalThis. In older engines we can escape
   // strict mode using a global Function call. This could conceivably fail
   // if a Content Security Policy forbids using Function, but in that case
   // the proper solution is to fix the accidental strict mode problem. If
   // you've misconfigured your bundler to force strict mode and applied a
   // CSP to forbid Function, and you're not willing to fix either of those
   // problems, please detail your unique predicament in a GitHub issue.
-  Function("r", "regeneratorRuntime = r")(runtime);
+  if (typeof globalThis === "object") {
+    globalThis.regeneratorRuntime = runtime;
+  } else {
+    Function("r", "regeneratorRuntime = r")(runtime);
+  }
 }
 });
+
+var PRIVATE_KEY_PATH = "44'/60'/0'/0/0";
+var TrezorSubprovider = /*#__PURE__*/function (_BaseWalletSubprovide) {
+  _inheritsLoose(TrezorSubprovider, _BaseWalletSubprovide);
+
+  /**
+   * Instantiates a TrezorSubprovider. Defaults to private key path set to `44'/60'/0'/0/`.
+   * Must be initialized with trezor-connect API module https://github.com/trezor/connect.
+   * @param TrezorSubprovider config object containing trezor-connect API
+   * @return TrezorSubprovider instance
+   */
+  function TrezorSubprovider(config) {
+    var _this;
+
+    _this = _BaseWalletSubprovide.call(this) || this;
+    _this._derivationPath = PRIVATE_KEY_PATH;
+    _this._privateKeyPath = "m/" + _this._derivationPath;
+    _this._trezorConnectClientApi = config.trezorConnectClientApi;
+    _this._networkId = config.networkId;
+    return _this;
+  }
+  /**
+   * Retrieve a users Trezor account. This method is automatically called
+   * when issuing a `eth_accounts` JSON RPC request via your providerEngine
+   * instance.
+   * @return An array of accounts
+   */
+
+
+  var _proto = TrezorSubprovider.prototype;
+
+  _proto.getAccountsAsync =
+  /*#__PURE__*/
+  function () {
+    var _getAccountsAsync = /*#__PURE__*/_asyncToGenerator( /*#__PURE__*/runtime_1.mark(function _callee() {
+      var response;
+      return runtime_1.wrap(function _callee$(_context) {
+        while (1) {
+          switch (_context.prev = _context.next) {
+            case 0:
+              _context.next = 2;
+              return this._trezorConnectClientApi.ethereumGetAddress({
+                path: "m/" + this._derivationPath
+              });
+
+            case 2:
+              response = _context.sent;
+
+              if (!response.success) {
+                _context.next = 6;
+                break;
+              }
+
+              this._privateKeyPath = response.payload.serializedPath;
+              return _context.abrupt("return", [response.payload.address]);
+
+            case 6:
+              return _context.abrupt("return", []);
+
+            case 7:
+            case "end":
+              return _context.stop();
+          }
+        }
+      }, _callee, this);
+    }));
+
+    function getAccountsAsync() {
+      return _getAccountsAsync.apply(this, arguments);
+    }
+
+    return getAccountsAsync;
+  }()
+  /**
+   * Signs a transaction on the Trezor with the account specificed by the `from` field in txParams.
+   * If you've added the TrezorSubprovider to your app's provider, you can simply send an `eth_sendTransaction`
+   * JSON RPC request, and this method will be called auto-magically. If you are not using this via a ProviderEngine
+   * instance, you can call it directly.
+   * @param txParams Parameters of the transaction to sign
+   * @return Signed transaction hex string
+   */
+  ;
+
+  _proto.signTransactionAsync =
+  /*#__PURE__*/
+  function () {
+    var _signTransactionAsync = /*#__PURE__*/_asyncToGenerator( /*#__PURE__*/runtime_1.mark(function _callee2(txData) {
+      var txPayload, response, payload, tx;
+      return runtime_1.wrap(function _callee2$(_context2) {
+        while (1) {
+          switch (_context2.prev = _context2.next) {
+            case 0:
+              txPayload = _extends({}, txData, {
+                chainId: this._networkId
+              });
+              _context2.next = 3;
+              return this._trezorConnectClientApi.ethereumSignTransaction({
+                path: this._privateKeyPath,
+                transaction: txPayload
+              });
+
+            case 3:
+              response = _context2.sent;
+
+              if (!response.success) {
+                _context2.next = 16;
+                break;
+              }
+
+              payload = response.payload;
+              tx = new Transaction(txPayload); // Set the EIP155 bits
+
+              tx.raw[6] = Buffer.from([this._networkId]); // v
+
+              tx.raw[7] = Buffer.from([]); // r
+
+              tx.raw[8] = Buffer.from([]); // s
+              // slice off leading 0x
+
+              tx.v = Buffer.from(payload.v.slice(2), 'hex');
+              tx.r = Buffer.from(payload.r.slice(2), 'hex');
+              tx.s = Buffer.from(payload.s.slice(2), 'hex');
+              return _context2.abrupt("return", "0x" + tx.serialize().toString("hex"));
+
+            case 16:
+              throw new Error(response.payload.error);
+
+            case 17:
+            case "end":
+              return _context2.stop();
+          }
+        }
+      }, _callee2, this);
+    }));
+
+    function signTransactionAsync(_x) {
+      return _signTransactionAsync.apply(this, arguments);
+    }
+
+    return signTransactionAsync;
+  }()
+  /**
+  * Sign a personal Ethereum signed message. The signing account will be the account
+  * associated with the provided address. If you've added the TrezorSubprovider to
+  * your app's provider, you can simply send an `eth_sign` or `personal_sign` JSON RPC
+  * request, and this method will be called auto-magically.
+  * If you are not using this via a ProviderEngine instance, you can call it directly.
+  * @param data Hex string message to sign
+  * @param address Address of the account to sign with
+  * @return Signature hex string (order: rsv)
+  */
+  ;
+
+  _proto.signPersonalMessageAsync =
+  /*#__PURE__*/
+  function () {
+    var _signPersonalMessageAsync = /*#__PURE__*/_asyncToGenerator( /*#__PURE__*/runtime_1.mark(function _callee3(data, address) {
+      var response, payload;
+      return runtime_1.wrap(function _callee3$(_context3) {
+        while (1) {
+          switch (_context3.prev = _context3.next) {
+            case 0:
+              _context3.next = 2;
+              return this._trezorConnectClientApi.ethereumSignMessage({
+                path: this._privateKeyPath,
+                message: data,
+                hex: true
+              });
+
+            case 2:
+              response = _context3.sent;
+
+              if (!response.success) {
+                _context3.next = 10;
+                break;
+              }
+
+              payload = response.payload;
+
+              if (!(payload.address !== address)) {
+                _context3.next = 7;
+                break;
+              }
+
+              throw new Error("address unknown " + address);
+
+            case 7:
+              return _context3.abrupt("return", "0x" + payload.signature);
+
+            case 10:
+              throw new Error(response.payload.error);
+
+            case 11:
+            case "end":
+              return _context3.stop();
+          }
+        }
+      }, _callee3, this);
+    }));
+
+    function signPersonalMessageAsync(_x2, _x3) {
+      return _signPersonalMessageAsync.apply(this, arguments);
+    }
+
+    return signPersonalMessageAsync;
+  }()
+  /**
+   * TODO:: eth_signTypedData is currently not supported on Trezor devices.
+   * @param address Address of the account to sign with
+   * @param data the typed data object
+   * @return Signature hex string (order: rsv)
+   */
+  // tslint:disable-next-line:prefer-function-over-method
+  ;
+
+  _proto.signTypedDataAsync =
+  /*#__PURE__*/
+  function () {
+    var _signTypedDataAsync = /*#__PURE__*/_asyncToGenerator( /*#__PURE__*/runtime_1.mark(function _callee4(address, typedData) {
+      return runtime_1.wrap(function _callee4$(_context4) {
+        while (1) {
+          switch (_context4.prev = _context4.next) {
+            case 0:
+              throw new Error("METHOD_NOT_SUPPORTED: signTypedData " + address + " " + typedData);
+
+            case 1:
+            case "end":
+              return _context4.stop();
+          }
+        }
+      }, _callee4);
+    }));
+
+    function signTypedDataAsync(_x4, _x5) {
+      return _signTypedDataAsync.apply(this, arguments);
+    }
+
+    return signTypedDataAsync;
+  }();
+
+  return TrezorSubprovider;
+}(BaseWalletSubprovider);
 
 var TrezorConnector = /*#__PURE__*/function (_AbstractConnector) {
   _inheritsLoose(TrezorConnector, _AbstractConnector);
@@ -841,13 +1108,13 @@ var TrezorConnector = /*#__PURE__*/function (_AbstractConnector) {
 
   _proto.activate = /*#__PURE__*/function () {
     var _activate = /*#__PURE__*/_asyncToGenerator( /*#__PURE__*/runtime_1.mark(function _callee() {
-      var TrezorConnect, engine;
+      var TrezorConnect, engine, trezorSubprovider;
       return runtime_1.wrap(function _callee$(_context) {
         while (1) {
           switch (_context.prev = _context.next) {
             case 0:
               if (this.provider) {
-                _context.next = 10;
+                _context.next = 11;
                 break;
               }
 
@@ -867,26 +1134,22 @@ var TrezorConnector = /*#__PURE__*/function (_AbstractConnector) {
               engine = new Web3ProviderEngine({
                 pollingInterval: this.pollingInterval
               });
-              engine.addProvider(new TrezorSubprovider({
-                accountFetchingConfigs: {
-                  numAddressesToReturn: 20,
-                  shouldAskForOnDeviceConfirmation: true
-                },
-                trezorConnectClientApi: TrezorConnect,
-                networkId: this.config.networkId
-              }));
+              trezorSubprovider = new TrezorSubprovider(_extends({
+                trezorConnectClientApi: TrezorConnect
+              }, this.config));
+              engine.addProvider(trezorSubprovider);
               engine.addProvider(new CacheSubprovider());
               engine.addProvider(new RPCSubprovider(this.url, this.requestTimeoutMs));
               this.provider = engine;
 
-            case 10:
+            case 11:
               this.provider.start();
               return _context.abrupt("return", {
                 provider: this.provider,
                 chainId: this.chainId
               });
 
-            case 12:
+            case 13:
             case "end":
               return _context.stop();
           }
