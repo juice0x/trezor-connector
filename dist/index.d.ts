@@ -23,7 +23,7 @@ export declare class TrezorConnector extends AbstractConnector {
     activate(): Promise<ConnectorUpdate>;
     getProvider(): Promise<Web3ProviderEngine>;
     getChainId(): Promise<number>;
-    getAccount(): Promise<null>;
+    getAccount(): Promise<string>;
     deactivate(): void;
 }
 export {};
